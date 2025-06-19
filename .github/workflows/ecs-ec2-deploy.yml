@@ -1,0 +1,55 @@
+name: Deploy to ECS EC2
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  deploy:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Build Docker image
+      run: |
+        docker build -t ${{ secrets.ECR_REPO_URL }}:latest .
+
+    - name: Push Docker image to ECR
+      run: |
+        docker push ${{ secrets.ECR_REPO_URL }}:latest
+
+    - name: Register new ECS Task Definition Revision
+      run: |
+        ecs_task_template=$(aws ecs describe-task-definition \
+          --task-definition ${{ secrets.ECS_TASK_DEFINITION }} \
+          --query taskDefinition \
+          --output json | jq 'del(.status, .revision, .taskDefinitionArn, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)')
+
+        echo "$ecs_task_template" | jq '.containerDefinitions[0].image = "${{ secrets.ECR_REPO_URL }}:latest"' > new-task-def.json
+
+        aws ecs register-task-definition --cli-input-json file://new-task-def.json
+
+    - name: Update ECS Service with New Task Definition
+      run: |
+        new_revision=$(aws ecs describe-task-definition \
+          --task-definition ${{ secrets.ECS_TASK_DEFINITION }} \
+          --query "taskDefinition.revision" --output text)
+
+        aws ecs update-service \
+          --cluster ${{ secrets.ECS_CLUSTER_NAME }} \
+          --service ${{ secrets.ECS_SERVICE_NAME }} \
+          --task-definition ${{ secrets.ECS_TASK_DEFINITION }}:$new_revision
