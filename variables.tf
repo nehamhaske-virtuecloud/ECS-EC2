@@ -1,99 +1,64 @@
-# ------------------------
-# General Project Settings
-# ------------------------
+variable "aws_region" {
+  description = "AWS region"
+  type        = string
+}
 
 variable "project_name" {
-  description = "Project name used for tagging AWS resources"
+  description = "Prefix name for resources"
   type        = string
+  default     = "ecs-ec2-3tier"
 }
 
-# ------------------------
-# Networking Configuration
-# ------------------------
-
-variable "vpc_cidr_block" {
-  description = "CIDR block for the main VPC"
-  type        = string
+variable "vpc_cidr" {
+  description = "CIDR for the main VPC"
+  default     = "10.0.0.0/16"
 }
 
-variable "public_subnet_cidr" {
-  description = "List of CIDR blocks for public subnets (e.g., web tier)"
+variable "public_subnets" {
   type        = list(string)
+  description = "Web tier subnets"
+  default     = ["10.0.1.0/24", "10.0.2.0/24"]
 }
 
-variable "private_subnet_cidr_app" {
-  description = "List of CIDR blocks for private subnets (e.g., app tier)"
+variable "private_app_subnets" {
   type        = list(string)
+  description = "App tier subnets"
+  default     = ["10.0.3.0/24", "10.0.4.0/24"]
 }
 
-variable "private_subnet_cidr_db" {
-  description = "List of CIDR blocks for private subnets (e.g., db tier)"
+variable "private_db_subnets" {
   type        = list(string)
+  description = "DB tier subnets"
+  default     = ["10.0.5.0/24", "10.0.6.0/24"]
 }
 
-variable "availability_zones" {
-  description = "List of availability zones (e.g., [\"ap-south-1a\", \"ap-south-1b\"])"
-  type        = list(string)
-}
-
-# ------------------------
-# EC2 Settings
-# ------------------------
-
-variable "instance_type" {
-  description = "EC2 instance type (e.g., t2.micro)"
+variable "key_pair_name" {
+  description = "Name of SSH key pair"
   type        = string
 }
 
-variable "key_name" {
-  description = "Name of the EC2 key pair"
-  type        = string
-}
-
-variable "allowed_ip" {
-  description = "Public IP or CIDR block allowed to SSH/HTTP (e.g., 0.0.0.0/0 or your IP)"
-  type        = string
-}
-
-# ------------------------
-# RDS Settings
-# ------------------------
-
-variable "db_username" {
-  description = "Master username for the RDS instance"
+variable "rds_password" {
+  description = "DB master password"
   type        = string
   sensitive   = true
 }
 
-variable "db_password" {
-  description = "Master password for the RDS instance"
-  type        = string
-  sensitive   = true
+variable "rds_username" {
+  description = "DB master username"
+  default     = "admin"
+}
+
+variable "rds_instance_class" {
+  description = "RDS instance type"
+  default     = "db.t3.micro"
+}
+
+variable "rds_allocated_storage" {
+  description = "Storage in GB"
+  default     = 20
 }
 
 variable "db_name" {
-  description = "Name of the RDS database to create"
-  type        = string
-}
-
-variable "ecs_min_capacity" {
-  description = "Min ECS EC2 instances per tier"
-  type        = number
-  default     = 2
-}
-
-variable "ecs_max_capacity" {
-  description = "Max ECS EC2 instances per tier"
-  type        = number
-  default     = 4
-}
-
-variable "web_image" {
-  description = "Docker image URI for Web container"
-  type        = string
-}
-
-variable "app_image" {
-  description = "Docker image URI for App container"
-  type        = string
+  description = "Initial DB name"
+  default     = "appdb"
 }
