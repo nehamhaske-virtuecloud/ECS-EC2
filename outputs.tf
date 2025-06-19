@@ -25,3 +25,8 @@ output "region" {
 output "ecs_ami_id" {
   value = data.aws_ami.ecs_ami.id
 }
+
+output "ecr_repo_url" {
+  value = aws_ecr_repository.app_repo.repository_url
+}
+
