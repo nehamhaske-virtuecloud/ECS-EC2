@@ -1,13 +1,20 @@
-name: Deploy to ECS (EC2 Launch)
+name: Build and Deploy Spring Boot App to ECS EC2
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
   deploy:
-    name: Build & Deploy to ECS
+    name: Build & Deploy
     runs-on: ubuntu-latest
+
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      ECR_REPO_URL: ${{ secrets.ECR_REPO_URL }}
+      ECS_CLUSTER_NAME: ${{ secrets.ECS_CLUSTER_NAME }}
+      ECS_SERVICE_NAME: ${{ secrets.ECS_SERVICE_NAME }}
+      ECS_TASK_DEFINITION: ${{ secrets.ECS_TASK_DEFINITION }}
 
     steps:
     - name: Checkout code
@@ -25,36 +32,45 @@ jobs:
 
     - name: Build Docker image
       run: |
-        docker build -t ${{ secrets.ECR_REPO_URL }}:latest .
+        docker build -t $ECR_REPO_URL:latest .
 
-    - name: Push Docker image to ECR
+    - name: Push image to Amazon ECR
       run: |
-        docker push ${{ secrets.ECR_REPO_URL }}:latest
+        docker push $ECR_REPO_URL:latest
 
-    - name: Get current ECS Task Definition
+    - name: Get current ECS task definition
       run: |
         aws ecs describe-task-definition \
-          --task-definition ${{ secrets.ECS_TASK_DEFINITION }} \
+          --task-definition $ECS_TASK_DEFINITION \
           --query taskDefinition \
-          --output json | jq 'del(.status, .revision, .taskDefinitionArn, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' > task-def.json
+          --output json > base-task-def.json
 
-    - name: Update image in ECS Task Definition
+    - name: Generate new ECS task definition with updated image
       run: |
-        jq --arg IMAGE "${{ secrets.ECR_REPO_URL }}:latest" '.containerDefinitions[0].image = $IMAGE' task-def.json > new-task-def.json
+        cat base-task-def.json | \
+        jq 'del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' | \
+        jq --arg IMAGE "$ECR_REPO_URL:latest" '.containerDefinitions[0].image = $IMAGE' \
+        > new-task-def.json
 
-    - name: Register new ECS Task Definition
+    - name: Debug new task definition
+      run: |
+        echo "====== New ECS Task Definition ======"
+        cat new-task-def.json
+        echo "====================================="
+
+    - name: Register new ECS task definition revision
       run: |
         aws ecs register-task-definition \
           --cli-input-json file://new-task-def.json
 
-    - name: Update ECS Service
+    - name: Update ECS service with new task revision
       run: |
         new_revision=$(aws ecs describe-task-definition \
-          --task-definition ${{ secrets.ECS_TASK_DEFINITION }} \
+          --task-definition $ECS_TASK_DEFINITION \
           --query "taskDefinition.revision" \
           --output text)
 
         aws ecs update-service \
-          --cluster ${{ secrets.ECS_CLUSTER_NAME }} \
-          --service ${{ secrets.ECS_SERVICE_NAME }} \
-          --task-definition ${{ secrets.ECS_TASK_DEFINITION }}:$new_revision
+          --cluster $ECS_CLUSTER_NAME \
+          --service $ECS_SERVICE_NAME \
+          --task-definition $ECS_TASK_DEFINITION:$new_revision
