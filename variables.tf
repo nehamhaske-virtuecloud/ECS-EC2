@@ -62,3 +62,9 @@ variable "db_name" {
   description = "Initial DB name"
   default     = "appdb"
 }
+
+variable "ecr_repo_name" {
+  description = "ECR repo name"
+  default = "ecs-ec2-3tier-repo"
+}
+
