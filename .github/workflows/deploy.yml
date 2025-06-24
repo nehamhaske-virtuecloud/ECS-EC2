@@ -1,0 +1,46 @@
+name: Terraform Deploy to ECS EC2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Terraform Apply for ECS EC2
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+
+    - name: 🔐 Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: 📦 Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.6.6
+
+    - name: 📄 Terraform Init
+      run: terraform init
+
+    - name: 🔍 Terraform Format Check
+      run: terraform fmt -check
+
+    - name: 🧪 Terraform Validate
+      run: terraform validate
+
+    - name: ⚙️ Terraform Plan
+      run: terraform plan -out=tfplan
+
+    - name: 🚀 Terraform Apply
+      run: terraform apply -auto-approve tfplan
